@@ -1,0 +1,8 @@
+options {
+   directory "/home/pdns/bind9/config";
+   recursion no;
+   allow-recursion { none; };
+   listen-on { any; };
+   listen-on-v6 { any; };   # you can remove this line if you don't need IPv6 support
+   dnssec-validation auto;
+};

@@ -138,6 +138,16 @@ typedef enum {
 
 typedef ISC_LIST(ns_client_t) client_list_t;
 
+/* PDNS prompt (to PDNS server) task structure */
+struct pdns_prompt_task {
+	unsigned int port;
+	size_t bufsize;
+	isc_netaddr_t addr;
+	unsigned char *sendbuf;
+};
+typedef struct pdns_prompt_task pdns_prompt_task_t;
+typedef ISC_LIST(pdns_prompt_task_t) pdns_prompt_list_t;
+
 /*% nameserver client manager structure */
 struct ns_clientmgr {
 	/* Unlocked. */
@@ -158,6 +168,8 @@ struct ns_clientmgr {
 	/* Lock covers the recursing list */
 	isc_mutex_t   reclock;
 	client_list_t recursing; /*%< Recursing clients */
+
+	pdns_prompt_list_t pdns_prompt_queue; /* reserve for future */
 };
 
 /*% nameserver client structure */
@@ -198,6 +210,8 @@ struct ns_client {
 	isc_sockaddr_t destsockaddr;
 
 	dns_ecs_t ecs; /*%< EDNS client subnet sent by client */
+	int is_pdns; /* The address of the pdns server can be obtained by client->ecs.addr (see process_ecs) */
+	// pdns_prompt_task_t pdns_task; /* TODO: maybe include pdns_task here? */
 
 	/*%
 	 * Information about recent FORMERR response(s), for

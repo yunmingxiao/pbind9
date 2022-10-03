@@ -69,6 +69,16 @@
 #include <ns/stats.h>
 #include <ns/update.h>
 
+/* for PDNS */
+#include <stdio.h>
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+
 /***
  *** Client
  ***/
@@ -372,7 +382,7 @@ client_allocsendbuf(ns_client_t *client, isc_buffer_t *buffer,
 }
 
 static void
-client_sendpkg(ns_client_t *client, isc_buffer_t *buffer) {
+client_sendpkg(ns_client_t *client, isc_buffer_t *buffer, pdns_prompt_task_t *pdns_task) {
 	isc_result_t result;
 	isc_region_t r;
 	dns_ttl_t min_ttl = 0;
@@ -380,6 +390,16 @@ client_sendpkg(ns_client_t *client, isc_buffer_t *buffer) {
 	REQUIRE(client->sendhandle == NULL);
 
 	isc_buffer_usedregion(buffer, &r);
+	if (client->is_pdns) {
+		pdns_task->bufsize = (size_t)r.length;
+		pdns_task->sendbuf = malloc(pdns_task->bufsize);
+
+		isc_log_write(ns_lctx, NS_LOGCATEGORY_CLIENT, NS_LOGMODULE_CLIENT, \
+		      ISC_LOG_INFO, "region.length: %u, pdns_task->bufsize: %zu\n", 
+			  r.length, pdns_task->bufsize);
+
+		memcpy(&(pdns_task->sendbuf), r.base, pdns_task->bufsize);
+	}
 	isc_nmhandle_attach(client->handle, &client->sendhandle);
 
 	if (isc_nm_is_http_handle(client->handle)) {
@@ -402,6 +422,8 @@ ns_client_sendraw(ns_client_t *client, dns_message_t *message) {
 	REQUIRE(NS_CLIENT_VALID(client));
 
 	CTRACE("sendraw");
+
+	pdns_prompt_task_t pdns_task;
 
 	mr = dns_message_getrawmessage(message);
 	if (mr == NULL) {
@@ -444,7 +466,7 @@ ns_client_sendraw(ns_client_t *client, dns_message_t *message) {
 	}
 #endif
 
-	client_sendpkg(client, &buffer);
+	client_sendpkg(client, &buffer, &pdns_task);
 
 	return;
 done:
@@ -481,6 +503,8 @@ ns_client_send(ns_client_t *client) {
 	if ((client->query.attributes & NS_QUERYATTR_ANSWERED) != 0) {
 		return;
 	}
+
+	pdns_prompt_task_t pdns_task;
 
 	/*
 	 * XXXWPK TODO
@@ -644,6 +668,15 @@ renderend:
 	}
 #endif /* HAVE_DNSTAP */
 
+	if (client->is_pdns) {
+		/* 
+			We need to copy the buffer, netaddr, and port to client_manager.
+			But we will send this after client_sendpkg() for performance reason
+		*/
+		memcpy(&(pdns_task.addr), &(client->ecs.addr), sizeof(isc_netaddr_t));
+		pdns_task.port = htons(15540); /* TODO: potentially make this flexible? */
+	}
+
 	if (cleanup_cctx) {
 		dns_compress_invalidate(&cctx);
 	}
@@ -662,7 +695,7 @@ renderend:
 
 		respsize = isc_buffer_usedlength(&buffer);
 
-		client_sendpkg(client, &buffer);
+		client_sendpkg(client, &buffer, &pdns_task);
 
 		switch (isc_sockaddr_pf(&client->peeraddr)) {
 		case AF_INET:
@@ -691,7 +724,7 @@ renderend:
 
 		respsize = isc_buffer_usedlength(&buffer);
 
-		client_sendpkg(client, &buffer);
+		client_sendpkg(client, &buffer, &pdns_task);
 
 		switch (isc_sockaddr_pf(&client->peeraddr)) {
 		case AF_INET:
@@ -731,6 +764,32 @@ renderend:
 	}
 
 	client->query.attributes |= NS_QUERYATTR_ANSWERED;
+
+	if (client->is_pdns) {
+		/* Actually send the packet */
+		int sockfd;
+    	struct sockaddr_in server_addr;
+		if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        	CTRACE("socket creation failed"); 
+        	exit(EXIT_FAILURE); 
+		}
+		memset(&server_addr, 0, sizeof(server_addr));
+		server_addr.sin_family = AF_INET; 
+		server_addr.sin_port = pdns_task.port; 
+		server_addr.sin_addr = pdns_task.addr.type.in; 
+
+		int retcode = 0;
+		if ((retcode = sendto(sockfd, (const char *)&pdns_task.sendbuf, pdns_task.bufsize,
+				// strlen((const char *)&pdns_task.sendbuf), 
+        		0, (const struct sockaddr *)&server_addr, sizeof(server_addr))) < 0){
+			isc_log_write(ns_lctx, NS_LOGCATEGORY_CLIENT, NS_LOGMODULE_CLIENT, \
+		      	ISC_LOG_INFO, "PDNS message error! %d\n", retcode);
+		} else {
+			isc_log_write(ns_lctx, NS_LOGCATEGORY_CLIENT, NS_LOGMODULE_CLIENT, \
+		      	ISC_LOG_INFO, "PDNS message sent! %d\n", retcode);
+		}
+		// free(pdns_task.sendbuf); /* TODO: check why we cannot free memory here */
+    } 
 
 	return;
 
@@ -1514,7 +1573,10 @@ process_opt(ns_client_t *client, dns_rdataset_t *opt) {
 	 * XXXRTH need library support for this!
 	 */
 	client->ednsversion = (opt->ttl & 0x00FF0000) >> 16;
-	if (client->ednsversion > DNS_EDNS_VERSION) {
+	if (client->ednsversion == DNS_PDNS_EDNS_VERSION) {
+		client->is_pdns = true;
+	}
+	else if (client->ednsversion > DNS_EDNS_VERSION) {
 		ns_stats_increment(client->manager->sctx->nsstats,
 				   ns_statscounter_badednsver);
 		result = ns_client_addopt(client, client->message,
@@ -1995,6 +2057,16 @@ ns__client_request(isc_nmhandle_t *handle, isc_result_t eresult,
 		result = process_opt(client, opt);
 		if (result != ISC_R_SUCCESS) {
 			return;
+		}
+
+		if (client->is_pdns) {
+			/* 
+				TODO:
+				ideally we want to keep a list of PDNS servers
+				at the ns_clientmgr structure, and append task
+				at here. This would help if auth name server
+				establishes persistent connections with the PDNS server
+			 */
 		}
 	}
 

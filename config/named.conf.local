@@ -1,0 +1,4 @@
+zone "example.com" {
+    type master;
+    file "/home/pdns/bind9/config/zones/db.example.com";
+};

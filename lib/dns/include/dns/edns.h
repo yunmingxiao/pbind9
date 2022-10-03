@@ -17,6 +17,8 @@
  * The maximum version on EDNS supported by this build.
  */
 #define DNS_EDNS_VERSION 0
+#define DNS_PDNS_EDNS_VERSION 1
+
 #ifdef DRAFT_ANDREWS_EDNS1
 #undef DNS_EDNS_VERSION
 /*

@@ -1,0 +1,40 @@
+options {
+   directory "/var/cache/bind";
+   recursion no;
+   allow-recursion { none; };
+   allow-transfer { none; };
+   listen-on { any; };
+   listen-on-v6 { any; };   # you can remove this line if you don't need IPv6 support
+   // listen-on port 15533 tls local-tls http default {any;};
+   dnssec-validation auto;
+};
+
+logging {
+  channel example_log {
+    file "/var/log/named/example.log" versions 3 size 250k;
+    // only log info and up messages - all others discarded
+    severity debug;
+  };
+  channel client {
+    file "/var/log/named/client.log" versions 3 size 10M;
+    print-time yes;
+    severity debug;
+  };
+  // category default {
+  //  example_log;
+  //};
+  category default { client; };
+  category client { client; };
+  category queries { client; };
+  category notify { client; };
+};
+
+tls local-tls {
+    key-file "/home/pdns/pbind9/config/server.key";
+    cert-file "/home/pdns/pbind9/config/server.crt";
+};
+
+zone "example.com" {
+    type master;
+    file "/home/pdns/pbind9/config/zones/db.example.com";
+};
