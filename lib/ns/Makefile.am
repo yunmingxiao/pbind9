@@ -21,7 +21,8 @@ libns_la_HEADERS =			\
 	include/ns/stats.h		\
 	include/ns/types.h		\
 	include/ns/update.h		\
-	include/ns/xfrout.h
+	include/ns/xfrout.h		\
+	include/ns/challenge.h
 
 libns_la_SOURCES =		\
 	$(libns_la_HEADERS)	\
@@ -36,7 +37,8 @@ libns_la_SOURCES =		\
 	sortlist.c		\
 	stats.c			\
 	update.c		\
-	xfrout.c
+	xfrout.c		\
+	challenge.c
 
 libns_la_CPPFLAGS =				\
 	$(AM_CPPFLAGS)				\

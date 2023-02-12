@@ -75,7 +75,6 @@
 
 #include <ns/query.h>
 #include <ns/types.h>
-#include <ns/challenge.h>
 
 /***
  *** Types
