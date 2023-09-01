@@ -101,4 +101,3 @@ doc/man/pkcs11-tokens.8in
 config/*.crt
 config/*.key
 config/*bind*
-config/zones/db.test.com
