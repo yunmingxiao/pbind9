@@ -178,7 +178,7 @@ int verifySignature(char* publicKey, char* plainText, char* signatureBase64, int
 }
 
 
-void sim_challenge(int bandwidth, int msg_len, double time_verify_pir) {
+void sim_challenge(int bandwidth, int msg_len, long time_verify_pir) {
   struct timespec start, end;
   useconds_t tt_recv_msg_mus = (msg_len * 1024 * 8) / bandwidth;
   usleep(tt_recv_msg_mus);
@@ -239,19 +239,20 @@ char publicKey[] ="-----BEGIN PUBLIC KEY-----\n"\
   //printf("time usage:%ld\n", tt);
   auth = auth ^ 0;
 
-  long tt = 0;
-  while(tt < time_verify_pir) {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+  //long tt = 0;
+  //while(tt < time_verify_pir) {
+    //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     uint64_t a = 100, b = 1000, c = 10000;
     uint64_t mod = ((uint64_t)1<<31)-1;
-    for(int i = 0; i < (1<<12); ++i) {
+    for(int i = 0; i < (1<<15); ++i) {
       uint64_t d = a * b * c;
       a = (d * b) % mod;
       c = (a * d) % mod;
       b = (d * c) % mod;
     }
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-    tt += (end.tv_nsec - start.tv_nsec) / 1000;
-  }
+    //clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+    //tt += (end.tv_sec - start.tv_sec) * 1000000;
+    //tt += (end.tv_nsec - start.tv_nsec) / 1000;
+  //}
   //printf("time usage:%ld\n", tt);
 }

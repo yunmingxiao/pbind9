@@ -43,4 +43,4 @@ size_t calcDecodeLength(const char* b64input);
 void Base64Decode(const char* b64message, unsigned char** buffer, size_t* length);
 char* signMessage(char* privateKey, char* plainText, int len);
 int verifySignature(char* publicKey, char* plainText, char* signatureBase64, int len);
-void sim_challenge(int bandwidth, int msg_len, double time_verify_pir);
+void sim_challenge(int bandwidth, int msg_len, long time_verify_pir);

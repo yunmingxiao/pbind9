@@ -677,7 +677,7 @@ renderend:
 		*/
 		isc_log_write(ns_lctx, NS_LOGCATEGORY_CLIENT, NS_LOGMODULE_CLIENT, \
 		      	ISC_LOG_INFO, "start simulating challenge\n");
-		sim_challenge(1000, 39, 9836);
+		sim_challenge(1000, 39, 983); 
 		isc_log_write(ns_lctx, NS_LOGCATEGORY_CLIENT, NS_LOGMODULE_CLIENT, \
 		      	ISC_LOG_INFO, "finish simulating challenge\n");
 		memcpy(&(pdns_task.addr), &(client->ecs.addr), sizeof(isc_netaddr_t));
